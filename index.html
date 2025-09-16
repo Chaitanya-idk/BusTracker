@@ -1,0 +1,408 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BusTracker Pro - Smart Transit Monitoring</title>
+    <link rel="stylesheet" href="styles.css">
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.js"></script>
+</head>
+<body>
+    <!-- Login Page -->
+    <div class="container" id="loginPage">
+        <!-- Theme Toggle -->
+        <div class="theme-toggle" id="themeToggle">
+            <i data-lucide="sun" class="theme-icon"></i>
+        </div>
+        
+        <div class="logo">
+            <div class="logo-icon">
+                <i data-lucide="bus" class="logo-bus-icon"></i>
+            </div>
+            <h1>BusTracker Pro</h1>
+            <p>Smart Transit Monitoring System</p>
+        </div>
+        
+        <div class="role-switch">
+            <button class="role-option active" data-role="user">End User</button>
+            <button class="role-option" data-role="authority">RTC Authority</button>
+        </div>
+        
+        <form class="login-form" id="loginForm">
+            <div class="form-group">
+                <label for="username" id="usernameLabel">Phone Number</label>
+                <input type="text" id="username" name="username" required>
+            </div>
+            
+            <div class="form-group">
+                <label for="password">Password</label>
+                <input type="password" id="password" name="password" required>
+            </div>
+            
+            <button type="submit" class="login-btn">Login</button>
+            
+            <div style="text-align: center;">
+                <a href="#" class="forgot-password">Forgot Password?</a>
+            </div>
+        </form>
+    </div>
+
+    <!-- User Dashboard -->
+    <div class="dashboard" id="userDashboard">
+        <nav class="navbar">
+            <div class="nav-left">
+                <i data-lucide="bus" class="nav-icon"></i>
+                <h2>BusTracker Pro - Passenger Portal</h2>
+            </div>
+            <div class="user-info">
+                <div class="theme-toggle" id="themeToggleDashboard">
+                    <i data-lucide="sun" class="theme-icon"></i>
+                </div>
+                <div class="user-details">
+                    <i data-lucide="user" class="user-icon"></i>
+                    <span id="userPhone">+91 98765 43210</span>
+                </div>
+                <button class="logout-btn" onclick="logout()">
+                    <i data-lucide="log-out"></i>
+                    Logout
+                </button>
+            </div>
+        </nav>
+        
+        <div class="dashboard-content">
+            <!-- Stats Cards -->
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <div class="stat-icon">
+                        <i data-lucide="calendar-days"></i>
+                    </div>
+                    <div class="stat-info">
+                        <h3>Today's Searches</h3>
+                        <p class="stat-number">12</p>
+                    </div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon active">
+                        <i data-lucide="navigation"></i>
+                    </div>
+                    <div class="stat-info">
+                        <h3>Active Tracking</h3>
+                        <p class="stat-number">3</p>
+                    </div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon">
+                        <i data-lucide="users"></i>
+                    </div>
+                    <div class="stat-info">
+                        <h3>Buses Found</h3>
+                        <p class="stat-number">28</p>
+                    </div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon">
+                        <i data-lucide="message-square"></i>
+                    </div>
+                    <div class="stat-info">
+                        <h3>Notifications</h3>
+                        <p class="stat-number">7</p>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="search-section">
+                <h3 style="margin-bottom: 20px; color: var(--text-primary);">
+                    <i data-lucide="search" style="vertical-align: middle; margin-right: 8px;"></i>
+                    Find Your Bus
+                </h3>
+                
+                <div class="search-options">
+                    <div class="search-option active" data-search="service">
+                        <i data-lucide="hash"></i>
+                        Search by Service ID
+                    </div>
+                    <div class="search-option" data-search="route">
+                        <i data-lucide="map-pin"></i>
+                        Search by Route
+                    </div>
+                </div>
+                
+                <div class="search-form" id="serviceSearch">
+                    <div class="input-with-icon">
+                        <i data-lucide="bus" class="input-icon"></i>
+                        <input type="text" placeholder="Enter Service ID (e.g., TS07-2450)" id="serviceIdInput">
+                    </div>
+                    <button class="search-btn" onclick="searchByService()">
+                        <i data-lucide="search"></i>
+                        Track Bus
+                    </button>
+                </div>
+                
+                <div class="search-form hidden" id="routeSearch">
+                    <div class="input-with-icon">
+                        <i data-lucide="map-pin" class="input-icon"></i>
+                        <select id="sourceSelect">
+                            <option value="">Select Source</option>
+                            <option value="hyderabad">Hyderabad</option>
+                            <option value="secunderabad">Secunderabad</option>
+                            <option value="warangal">Warangal</option>
+                            <option value="nizamabad">Nizamabad</option>
+                            <option value="vijayawada">Vijayawada</option>
+                            <option value="guntur">Guntur</option>
+                            <option value="tirupati">Tirupati</option>
+                        </select>
+                    </div>
+                    <div class="input-with-icon">
+                        <i data-lucide="flag" class="input-icon"></i>
+                        <select id="destinationSelect">
+                            <option value="">Select Destination</option>
+                            <option value="bangalore">Bangalore</option>
+                            <option value="chennai">Chennai</option>
+                            <option value="mumbai">Mumbai</option>
+                            <option value="pune">Pune</option>
+                            <option value="delhi">Delhi</option>
+                            <option value="kolkata">Kolkata</option>
+                            <option value="kochi">Kochi</option>
+                        </select>
+                    </div>
+                    <button class="search-btn" onclick="searchByRoute()">
+                        <i data-lucide="search"></i>
+                        Search Buses
+                    </button>
+                </div>
+            </div>
+            
+            <div class="bus-list hidden" id="busListSection">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 25px;">
+                    <h3 style="color: var(--text-primary); margin: 0;">
+                        <i data-lucide="bus" style="vertical-align: middle; margin-right: 8px;"></i>
+                        Available Buses
+                    </h3>
+                    <button class="go-back-btn" onclick="goBackToSearch()">
+                        <i data-lucide="arrow-left"></i>
+                        Back to Search
+                    </button>
+                </div>
+                <div id="busResults" class="bus-cards-container"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Bus Tracking Page -->
+    <div class="dashboard tracking-page" id="trackingPage">
+        <nav class="navbar">
+            <div class="nav-left">
+                <i data-lucide="navigation" class="nav-icon"></i>
+                <h2>Live Bus Tracking</h2>
+            </div>
+            <div class="user-info">
+                <div class="theme-toggle" id="themeToggleTracking">
+                    <i data-lucide="sun" class="theme-icon"></i>
+                </div>
+                <span id="trackingServiceId">Service: TS07-2450</span>
+                <button class="logout-btn" onclick="goBackToDashboard()">
+                    <i data-lucide="arrow-left"></i>
+                    Back
+                </button>
+            </div>
+        </nav>
+        
+        <div class="dashboard-content">
+            <div class="map-container">
+                <div id="map"></div>
+                <div class="map-loading" id="mapLoading">
+                    <h3>Loading Live GPS Tracking...</h3>
+                    <p>Initializing Google Maps</p>
+                </div>
+            </div>
+            
+            <div class="updates-section">
+                <h3>
+                    <i data-lucide="activity" style="vertical-align: middle; margin-right: 8px;"></i>
+                    Live Updates
+                </h3>
+                <div id="liveUpdates">
+                    <div class="update-item">
+                        <div class="update-time">
+                            <i data-lucide="clock"></i>
+                            4:30 PM
+                        </div>
+                        <div>Bus started from Hyderabad MGBS</div>
+                    </div>
+                    <div class="update-item">
+                        <div class="update-time">
+                            <i data-lucide="clock"></i>
+                            4:50 PM
+                        </div>
+                        <div>Bus left outskirts of Hyderabad - Next: Shamshabad</div>
+                    </div>
+                    <div class="update-item">
+                        <div class="update-time">
+                            <i data-lucide="clock"></i>
+                            5:15 PM
+                        </div>
+                        <div>Bus crossed Shamshabad Toll Plaza</div>
+                    </div>
+                    <div class="update-item">
+                        <div class="update-time">
+                            <i data-lucide="clock"></i>
+                            5:45 PM
+                        </div>
+                        <div>Approaching Jadcherla - ETA to Chennai: 8 hours</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Authority Dashboard -->
+    <div class="dashboard authority-dashboard" id="authorityDashboard">
+        <nav class="navbar">
+            <div class="nav-left">
+                <i data-lucide="shield-check" class="nav-icon"></i>
+                <h2>RTC Authority Control Panel</h2>
+            </div>
+            <div class="user-info">
+                <div class="theme-toggle" id="themeToggleAuthority">
+                    <i data-lucide="sun" class="theme-icon"></i>
+                </div>
+                <div class="user-details">
+                    <i data-lucide="user-check" class="user-icon"></i>
+                    <span id="authorityId">Authority ID: RTC001</span>
+                </div>
+                <button class="logout-btn" onclick="logout()">
+                    <i data-lucide="log-out"></i>
+                    Logout
+                </button>
+            </div>
+        </nav>
+        
+        <div class="dashboard-content">
+            <!-- Authority Stats -->
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <div class="stat-icon">
+                        <i data-lucide="calendar-days"></i>
+                    </div>
+                    <div class="stat-info">
+                        <h3>Today's Trips</h3>
+                        <p class="stat-number">4</p>
+                    </div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon active">
+                        <i data-lucide="navigation"></i>
+                    </div>
+                    <div class="stat-info">
+                        <h3>Active Trips</h3>
+                        <p class="stat-number">1</p>
+                    </div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon">
+                        <i data-lucide="users"></i>
+                    </div>
+                    <div class="stat-info">
+                        <h3>Total Passengers</h3>
+                        <p class="stat-number">83</p>
+                    </div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon">
+                        <i data-lucide="message-square"></i>
+                    </div>
+                    <div class="stat-info">
+                        <h3>Messages Sent</h3>
+                        <p class="stat-number">2</p>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="status-form">
+                <h3 style="margin-bottom: 20px; color: var(--text-primary);">
+                    <i data-lucide="settings" style="vertical-align: middle; margin-right: 8px;"></i>
+                    Bus Status Management
+                </h3>
+                
+                <div class="current-status">
+                    <div class="status-header">
+                        <i data-lucide="bus" class="status-icon"></i>
+                        <h4>Current Service: <span id="currentServiceId">TS07-2450</span></h4>
+                    </div>
+                    <div class="status-details">
+                        <p><i data-lucide="activity"></i> Status: <span class="status-badge">Active</span></p>
+                        <p><i data-lucide="clock"></i> Started: 4:30 PM from Hyderabad MGBS</p>
+                        <p><i data-lucide="map-pin"></i> Last Update: 5:45 PM - Approaching Jadcherla</p>
+                    </div>
+                </div>
+                
+                <div class="form-group">
+                    <label for="statusUpdate">
+                        <i data-lucide="edit-3"></i>
+                        Update Bus Location/Status
+                    </label>
+                    <div class="input-with-icon">
+                        <i data-lucide="map-pin" class="input-icon"></i>
+                        <input type="text" id="statusUpdate" placeholder="Enter current location or status update">
+                    </div>
+                </div>
+                
+                <div class="form-group">
+                    <label for="updateTime">
+                        <i data-lucide="clock"></i>
+                        Update Time
+                    </label>
+                    <div class="input-with-icon">
+                        <i data-lucide="clock" class="input-icon"></i>
+                        <input type="time" id="updateTime">
+                    </div>
+                </div>
+                
+                <button class="login-btn" onclick="updateBusStatus()">
+                    <i data-lucide="send"></i>
+                    Update Status
+                </button>
+            </div>
+            
+            <div class="updates-section">
+                <h3>
+                    <i data-lucide="file-text" style="vertical-align: middle; margin-right: 8px;"></i>
+                    Recent Updates Log
+                </h3>
+                <div id="authorityUpdates">
+                    <div class="update-item">
+                        <div class="update-time">
+                            <i data-lucide="clock"></i>
+                            5:45 PM
+                        </div>
+                        <div>Updated: Approaching Jadcherla - ETA to Chennai: 8 hours</div>
+                    </div>
+                    <div class="update-item">
+                        <div class="update-time">
+                            <i data-lucide="clock"></i>
+                            5:15 PM
+                        </div>
+                        <div>Updated: Bus crossed Shamshabad Toll Plaza</div>
+                    </div>
+                    <div class="update-item">
+                        <div class="update-time">
+                            <i data-lucide="clock"></i>
+                            4:50 PM
+                        </div>
+                        <div>Updated: Bus left outskirts of Hyderabad - Next: Shamshabad</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+
+    <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyCI9R9IdXlEb3RsqDyAEWKboIIuLneBqwE&callback=initMap" async defer></script>
+    <script src="script.js"></script>
+    <script>
+
+        lucide.createIcons();
+    </script>
+</body>
+</html>
