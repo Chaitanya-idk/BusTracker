@@ -1,7 +1,7 @@
-// Database configuration and API functions
+
 import { createClient } from '@supabase/supabase-js';
 
-// Initialize Supabase client
+
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
 const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
 
@@ -11,9 +11,9 @@ if (!supabaseUrl || !supabaseKey) {
 
 export const supabase = createClient(supabaseUrl, supabaseKey);
 
-// Bus API functions
+
 export const busAPI = {
-    // Get all buses
+ 
     async getAllBuses() {
         try {
             const { data, error } = await supabase
@@ -29,7 +29,7 @@ export const busAPI = {
         }
     },
 
-    // Get bus by vehicle number
+ 
     async getBusByVehicleNumber(vehicleNumber) {
         try {
             const { data, error } = await supabase
@@ -46,7 +46,7 @@ export const busAPI = {
         }
     },
 
-    // Search buses by route
+ 
     async getBusesByRoute(source, destination) {
         try {
             const { data, error } = await supabase
@@ -64,10 +64,9 @@ export const busAPI = {
         }
     },
 
-    // Update bus location and status
+    
     async updateBusStatus(vehicleNumber, location, status, authorityId) {
         try {
-            // First update the bus record
             const { data: busData, error: busError } = await supabase
                 .from('buses')
                 .update({
@@ -80,8 +79,6 @@ export const busAPI = {
                 .single();
 
             if (busError) throw busError;
-
-            // Then add to update history
             const { data: updateData, error: updateError } = await supabase
                 .from('bus_updates')
                 .insert({
@@ -103,7 +100,7 @@ export const busAPI = {
         }
     },
 
-    // Get bus update history
+   
     async getBusUpdateHistory(vehicleNumber, limit = 10) {
         try {
             const { data, error } = await supabase
@@ -124,7 +121,7 @@ export const busAPI = {
         }
     },
 
-    // Get recent updates for all buses
+  
     async getRecentUpdates(limit = 20) {
         try {
             const { data, error } = await supabase
@@ -144,7 +141,7 @@ export const busAPI = {
         }
     },
 
-    // Get active buses
+
     async getActiveBuses() {
         try {
             const { data, error } = await supabase
@@ -161,7 +158,7 @@ export const busAPI = {
         }
     },
 
-    // Add new bus (for authorities)
+   
     async addNewBus(busData) {
         try {
             const { data, error } = await supabase
@@ -185,7 +182,7 @@ export const busAPI = {
     }
 };
 
-// Utility functions
+
 export const formatTime = (timestamp) => {
     return new Date(timestamp).toLocaleTimeString('en-US', {
         hour: '2-digit',
