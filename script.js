@@ -10,7 +10,7 @@ let currentTheme = 'light';
 let currentBus = null; // holds latest bus document
 let locationPollIntervalId = null;
 
-const API_BASE = window.APP_API_BASE || (location.hostname.includes('localhost') ? 'http://localhost:5000' : 'https://YOUR-RENDER-APP.onrender.com');
+const API_BASE = window.APP_API_BASE || (location.hostname.includes('localhost') ? 'http://localhost:5000' : 'https://back-end-sih.onrender.com');
 
 async function apiGet(path) {
 	const res = await fetch(`${API_BASE}${path}`);
