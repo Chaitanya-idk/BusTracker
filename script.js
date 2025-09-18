@@ -7,12 +7,36 @@ let directionsService = null;
 let directionsRenderer = null;
 let currentTheme = 'light';
 
+let currentBus = null; // holds latest bus document
+let locationPollIntervalId = null;
 
-const busLocations = {
-    'TS07-2450': { lat: 17.3850, lng: 78.4867, location: 'Hyderabad' },
-    'AP05-1823': { lat: 16.5062, lng: 80.6480, location: 'Vijayawada' },
-    'KA03-0976': { lat: 15.3173, lng: 75.7139, location: 'Bagalkot' }
-};
+const API_BASE = window.APP_API_BASE || (location.hostname.includes('localhost') ? 'http://localhost:5000' : 'https://YOUR-RENDER-APP.onrender.com');
+
+async function apiGet(path) {
+	const res = await fetch(`${API_BASE}${path}`);
+	if (!res.ok) throw new Error(`GET ${path} failed`);
+	return res.json();
+}
+
+async function apiPost(path, body) {
+	const res = await fetch(`${API_BASE}${path}`, {
+		method: 'POST',
+		headers: { 'Content-Type': 'application/json' },
+		body: JSON.stringify(body)
+	});
+	if (!res.ok) throw new Error(`POST ${path} failed`);
+	return res.json();
+}
+
+async function apiPatch(path, body) {
+	const res = await fetch(`${API_BASE}${path}`, {
+		method: 'PATCH',
+		headers: { 'Content-Type': 'application/json' },
+		body: JSON.stringify(body)
+	});
+	if (!res.ok) throw new Error(`PATCH ${path} failed`);
+	return res.json();
+}
 
 
 document.addEventListener('DOMContentLoaded', function() {
@@ -25,7 +49,7 @@ document.addEventListener('DOMContentLoaded', function() {
 function initializeApp() {
     setupRoleSwitching();
     setupSearchOptions();
-    setupLoginForm();
+	setupLoginForm();
     setCurrentTime();
     
     
@@ -136,8 +160,9 @@ function setupLoginForm() {
                 document.getElementById('userPhone').textContent = username;
                 showUserDashboard();
             } else {
-                document.getElementById('authorityId').textContent = `Authority ID: ${username}`;
-                showAuthorityDashboard();
+				document.getElementById('authorityId').textContent = `Authority ID: ${username}`;
+				showAuthorityDashboard();
+				loadAuthorityData();
             }
         }
     });
@@ -156,46 +181,35 @@ function showAuthorityDashboard() {
 
 
 function searchByService() {
-    const serviceId = document.getElementById('serviceIdInput').value.trim();
-    if (serviceId) {
-        showTrackingPage(serviceId);
-    } else {
-        alert('Please enter a valid Service ID');
-    }
+	const serviceId = document.getElementById('serviceIdInput').value.trim();
+	if (serviceId) {
+		showTrackingPage(serviceId);
+	} else {
+		alert('Please enter a valid Service ID');
+	}
 }
 
 
-function searchByRoute() {
+async function searchByRoute() {
     const source = document.getElementById('sourceSelect').value;
     const destination = document.getElementById('destinationSelect').value;
-    
     if (source && destination) {
- 
-        const buses = [
-            { 
-                serviceId: 'TS07-2450', 
-                route: `${capitalizeFirst(source)} → ${capitalizeFirst(destination)}`, 
-                status: 'On Route',
-                nextStop: 'Shamshabad',
-                eta: '6 hours'
-            },
-            { 
-                serviceId: 'AP05-1823', 
-                route: `${capitalizeFirst(source)} → ${capitalizeFirst(destination)}`, 
-                status: 'Scheduled',
-                nextStop: 'Departure in 2 hours',
-                eta: '8 hours'
-            },
-            { 
-                serviceId: 'KA03-0976', 
-                route: `${capitalizeFirst(source)} → ${capitalizeFirst(destination)}`, 
-                status: 'On Route',
-                nextStop: 'Kurnool',
-                eta: '7 hours'
+        try {
+            const results = await apiGet(`/api/search?source=${encodeURIComponent(source)}&destination=${encodeURIComponent(destination)}`);
+            const buses = (results || []).map(doc => ({
+                serviceId: doc.vehicleNumber || String(doc.serviceNumber),
+                route: `${capitalizeFirst(doc.source)} → ${capitalizeFirst(doc.destination)}`,
+                status: doc.currentStatus || 'Unknown',
+                nextStop: '—',
+                eta: '—'
+            }));
+            if (buses.length === 0) {
+                showNotification('No buses found for route', 'warning');
             }
-        ];
-        
-        displayBusList(buses);
+            displayBusList(buses);
+        } catch (e) {
+            showNotification('Search failed', 'error');
+        }
     } else {
         alert('Please select both source and destination');
     }
@@ -207,7 +221,7 @@ function displayBusList(buses) {
     const busListSection = document.getElementById('busListSection');
     
     busResults.innerHTML = buses.map(bus => `
-        <div class="bus-card" onclick="showTrackingPage('${bus.serviceId}')">
+		<div class="bus-card" onclick="showTrackingPage('${bus.serviceId}')">
             <div class="bus-info">
                 <div>
                     <div class="bus-route">
@@ -234,13 +248,24 @@ function displayBusList(buses) {
 }
 
 
-function showTrackingPage(serviceId) {
-    document.getElementById('trackingServiceId').textContent = `Service: ${serviceId}`;
-    document.getElementById('userDashboard').style.display = 'none';
-    document.getElementById('trackingPage').style.display = 'block';
-    
-    setTimeout(() => initializeMap(serviceId), 500);
-    simulateLiveUpdates(serviceId);
+async function showTrackingPage(serviceId) {
+	document.getElementById('trackingServiceId').textContent = `Service: ${serviceId}`;
+	document.getElementById('userDashboard').style.display = 'none';
+	document.getElementById('trackingPage').style.display = 'block';
+
+	try {
+		const isNumeric = /^\d{3,}$/.test(serviceId);
+		const queryParam = isNumeric ? `serviceNumber=${encodeURIComponent(parseInt(serviceId, 10))}` : `vehicleNumber=${encodeURIComponent(serviceId)}`;
+		currentBus = await apiGet(`/api/bus?${queryParam}`);
+		setTimeout(() => initializeMapWithBus(currentBus), 300);
+		startPollingLocation(currentBus, isNumeric ? 'serviceNumber' : 'vehicleNumber');
+	} catch (err) {
+		console.error('Failed to load bus from API', err);
+		showNotification('Bus not found. Please check the ID.', 'error');
+		goBackToDashboard();
+	}
+
+	simulateLiveUpdates(serviceId);
 }
 
 
@@ -250,20 +275,19 @@ function initMap() {
 }
 
 
-function initializeMap(serviceId) {
+function initializeMapWithBus(busDoc) {
     const mapElement = document.getElementById('map');
     const loadingElement = document.getElementById('mapLoading');
     
     if (!mapElement) return;
     
-
-    const busLocation = busLocations[serviceId] || { lat: 17.3850, lng: 78.4867, location: 'Hyderabad' };
+	const center = { lat: busDoc?.latitude ?? 17.3850, lng: busDoc?.longitude ?? 78.4867 };
     
     try {
 
-        map = new google.maps.Map(mapElement, {
+		map = new google.maps.Map(mapElement, {
             zoom: 12,
-            center: busLocation,
+			center: center,
             mapTypeId: 'roadmap',
             styles: [
                 {
@@ -299,21 +323,21 @@ function initializeMap(serviceId) {
         };
 
    
-        busMarker = new google.maps.Marker({
-            position: busLocation,
+		busMarker = new google.maps.Marker({
+			position: center,
             map: map,
-            title: `Bus ${serviceId}`,
+			title: `Bus ${busDoc?.vehicleNumber || busDoc?.serviceNumber || ''}`,
             icon: busIcon,
             animation: google.maps.Animation.BOUNCE
         });
 
 
-        const infoWindow = new google.maps.InfoWindow({
+		const infoWindow = new google.maps.InfoWindow({
             content: `
                 <div style="padding: 10px;">
-                    <h4 style="color: #667eea; margin: 0 0 8px 0;">🚌 Bus ${serviceId}</h4>
-                    <p style="margin: 4px 0; color: #4a5568;"><strong>Current Location:</strong> ${busLocation.location}</p>
-                    <p style="margin: 4px 0; color: #4a5568;"><strong>Status:</strong> On Route</p>
+					<h4 style="color: #667eea; margin: 0 0 8px 0;">🚌 Bus ${busDoc?.vehicleNumber || busDoc?.serviceNumber || ''}</h4>
+					<p style="margin: 4px 0; color: #4a5568;"><strong>Source:</strong> ${busDoc?.source || '-'} → <strong>Dest:</strong> ${busDoc?.destination || '-'}</p>
+					<p style="margin: 4px 0; color: #4a5568;"><strong>Status:</strong> ${busDoc?.currentStatus || 'Unknown'}</p>
                     <p style="margin: 4px 0; color: #4a5568;"><strong>Next Stop:</strong> Shamshabad</p>
                     <p style="margin: 4px 0; color: #4a5568;"><strong>Speed:</strong> 65 km/h</p>
                 </div>
@@ -321,7 +345,7 @@ function initializeMap(serviceId) {
         });
 
     
-        busMarker.addListener('click', () => {
+		busMarker.addListener('click', () => {
             infoWindow.open(map, busMarker);
         });
 
@@ -331,21 +355,43 @@ function initializeMap(serviceId) {
         }, 1000);
 
         
-        if (loadingElement) {
+		if (loadingElement) {
             loadingElement.style.display = 'none';
         }
 
-        setTimeout(() => {
+		setTimeout(() => {
             busMarker.setAnimation(null);
         }, 3000);
 
-        
-        simulateBusMovement(serviceId);
 
     } catch (error) {
         console.error('Error initializing map:', error);
         showMapFallback();
     }
+}
+
+async function startPollingLocation(busDoc, idType) {
+	if (locationPollIntervalId) {
+		clearInterval(locationPollIntervalId);
+		locationPollIntervalId = null;
+	}
+
+	const idValue = idType === 'serviceNumber' ? busDoc.serviceNumber : busDoc.vehicleNumber;
+	const qp = idType === 'serviceNumber' ? `serviceNumber=${encodeURIComponent(busDoc.serviceNumber)}` : `vehicleNumber=${encodeURIComponent(busDoc.vehicleNumber)}`;
+
+	locationPollIntervalId = setInterval(async () => {
+		try {
+			const latest = await apiGet(`/api/bus?${qp}`);
+			currentBus = latest;
+			if (map && busMarker && typeof latest.latitude === 'number' && typeof latest.longitude === 'number') {
+				const newPos = { lat: latest.latitude, lng: latest.longitude };
+				busMarker.setPosition(newPos);
+				map.setCenter(newPos);
+			}
+		} catch (e) {
+			console.warn('Polling failed', e);
+		}
+	}, 5000);
 }
 
 function showMapFallback() {
@@ -370,48 +416,7 @@ function showMapFallback() {
 }
 
 
-function simulateBusMovement(serviceId) {
-    if (!map || !busMarker) return;
-    
-    const movements = [
-        { lat: 17.3750, lng: 78.4967, location: 'Shamshabad Area' },
-        { lat: 17.3650, lng: 78.5167, location: 'Toll Plaza' },
-        { lat: 17.3550, lng: 78.5367, location: 'Jadcherla Approach' }
-    ];
-    
-    let currentMovement = 0;
-    
-    const moveInterval = setInterval(() => {
-        if (currentMovement < movements.length && busMarker && map) {
-            const newPosition = movements[currentMovement];
-            busMarker.setPosition(newPosition);
-            map.setCenter(newPosition);
-            
-          
-            const infoWindow = new google.maps.InfoWindow({
-                content: `
-                    <div style="padding: 12px; font-family: Arial, sans-serif;">
-                        <h4 style="color: #3b82f6; margin: 0 0 8px 0;">🚌 Bus ${serviceId}</h4>
-                        <p style="margin: 4px 0; color: #333;"><strong>Location:</strong> ${newPosition.location}</p>
-                        <p style="margin: 4px 0; color: #333;"><strong>Status:</strong> Moving</p>
-                        <p style="margin: 4px 0; color: #333;"><strong>Speed:</strong> ${Math.round(60 + Math.random() * 20)} km/h</p>
-                        <p style="margin: 4px 0; color: #10b981;"><strong>Updated:</strong> Just now</p>
-                    </div>
-                `
-            });
-            
-            infoWindow.open(map, busMarker);
-            currentMovement++;
-        } else {
-            clearInterval(moveInterval);
-          
-            activeIntervals = activeIntervals.filter(id => id !== moveInterval);
-        }
-    }, 8000);
-    
-   
-    activeIntervals.push(moveInterval);
-}
+function simulateBusMovement() {}
 
 
 function clearAllIntervals() {
@@ -419,6 +424,10 @@ function clearAllIntervals() {
         clearInterval(intervalId);
     });
     activeIntervals = [];
+	if (locationPollIntervalId) {
+		clearInterval(locationPollIntervalId);
+		locationPollIntervalId = null;
+	}
 }
 
 
@@ -523,56 +532,81 @@ function simulateLiveUpdates(serviceId) {
     activeIntervals.push(updateInterval);
 }
 
-function updateBusStatus() {
-    const statusUpdate = document.getElementById('statusUpdate').value;
-    const updateTime = document.getElementById('updateTime').value;
-    
-    if (statusUpdate && updateTime) {
-      
-        const updatesContainer = document.getElementById('authorityUpdates');
-        const newUpdate = document.createElement('div');
-        newUpdate.className = 'update-item';
-        newUpdate.innerHTML = `
-            <div class="update-time">
-                <i data-lucide="clock"></i>
-                ${updateTime}
-            </div>
-            <div style="display: flex; align-items: center; gap: 8px;">
-                <i data-lucide="edit-3" style="width: 16px; height: 16px; color: var(--secondary-color);"></i>
-                Updated: ${statusUpdate}
-            </div>
-        `;
-        updatesContainer.insertBefore(newUpdate, updatesContainer.firstChild);
-        
+async function updateBusStatus() {
+	const statusUpdate = document.getElementById('statusUpdate').value;
+	const updateTime = document.getElementById('updateTime').value;
+	const selector = document.getElementById('authorityBusSelect');
+	const selectedVehicle = selector?.value;
+	
+	if (statusUpdate && updateTime && selectedVehicle) {
+		try {
+			await apiPatch('/api/location', { vehicleNumber: selectedVehicle, currentStatus: statusUpdate });
+			// UI feedback
+			const updatesContainer = document.getElementById('authorityUpdates');
+			const newUpdate = document.createElement('div');
+			newUpdate.className = 'update-item';
+			newUpdate.innerHTML = `
+				<div class="update-time">
+					<i data-lucide="clock"></i>
+					${updateTime}
+				</div>
+				<div style="display: flex; align-items: center; gap: 8px;">
+					<i data-lucide="edit-3" style="width: 16px; height: 16px; color: var(--secondary-color);"></i>
+					Updated: ${statusUpdate}
+				</div>
+			`;
+			updatesContainer.insertBefore(newUpdate, updatesContainer.firstChild);
+			const currentStatus = document.querySelector('.status-details p:last-child');
+			if (currentStatus) {
+				currentStatus.innerHTML = `
+					<i data-lucide="map-pin"></i>
+					Last Update: ${updateTime} - ${statusUpdate}
+				`;
+			}
+			document.getElementById('statusUpdate').value = '';
+			document.getElementById('updateTime').value = getCurrentTime();
+			showNotification('Status updated successfully!', 'success');
+			if (typeof lucide !== 'undefined') {
+				lucide.createIcons();
+			}
+		} catch (e) {
+			showNotification('Failed to update status', 'error');
+		}
+	} else {
+		showNotification('Please fill in all fields', 'error');
+	}
+}
 
-        const currentStatus = document.querySelector('.status-details p:last-child');
-        if (currentStatus) {
-            currentStatus.innerHTML = `
-                <i data-lucide="map-pin"></i>
-                Last Update: ${updateTime} - ${statusUpdate}
-            `;
-        }
-        
+async function loadAuthorityData() {
+	try {
+		const buses = await apiGet('/api/main');
+		const select = document.getElementById('authorityBusSelect');
+		if (select) {
+			select.innerHTML = '<option value="">Select Vehicle Number</option>' + buses.map(b => `<option value="${b.vehicleNumber}">${b.vehicleNumber} (${b.serviceNumber})</option>`).join('');
+		}
+	} catch (e) {
+		console.warn('Failed to load bus list');
+	}
+}
 
-        document.getElementById('statusUpdate').value = '';
-        document.getElementById('updateTime').value = getCurrentTime();
-        
-      
-        showNotification('Status updated successfully!', 'success');
-        
-       
-        newUpdate.style.backgroundColor = 'var(--bg-tertiary)';
-        setTimeout(() => {
-            newUpdate.style.backgroundColor = 'var(--bg-secondary)';
-        }, 3000);
-        
-
-        if (typeof lucide !== 'undefined') {
-            lucide.createIcons();
-        }
-    } else {
-        showNotification('Please fill in all fields', 'error');
-    }
+async function submitBusForm(e) {
+	e?.preventDefault?.();
+	const form = document.getElementById('busForm');
+	if (!form) return;
+	const formData = new FormData(form);
+	const payload = Object.fromEntries(formData.entries());
+	// coerce numeric fields
+	if (payload.serviceNumber) payload.serviceNumber = parseInt(payload.serviceNumber, 10);
+	if (payload.latitude) payload.latitude = parseFloat(payload.latitude);
+	if (payload.longitude) payload.longitude = parseFloat(payload.longitude);
+	try {
+		await apiPost('/api/main', payload);
+		showNotification('Bus saved successfully', 'success');
+		form.reset();
+		loadAuthorityData();
+	} catch (e) {
+		showNotification('Failed to save bus', 'error');
+	}
 }
 
 
@@ -749,3 +783,11 @@ window.gm_authFailure = function() {
 
 
 window.initMap = initMap;
+
+// Attach authority form handler if present
+document.addEventListener('DOMContentLoaded', () => {
+	const form = document.getElementById('busForm');
+	if (form) {
+		form.addEventListener('submit', submitBusForm);
+	}
+});
