@@ -639,6 +639,12 @@ async function submitBusForm(e) {
 	if (payload.serviceNumber) payload.serviceNumber = parseInt(payload.serviceNumber, 10);
 	if (payload.latitude) payload.latitude = parseFloat(payload.latitude);
 	if (payload.longitude) payload.longitude = parseFloat(payload.longitude);
+    // front-end validation to match server schema
+    const validationError = validateBusPayload(payload);
+    if (validationError) {
+        showNotification(validationError, 'error');
+        return;
+    }
 	try {
 		await apiPost('/api/main', payload);
 		showNotification('Bus saved successfully', 'success');
@@ -647,6 +653,37 @@ async function submitBusForm(e) {
 	} catch (e) {
 		showNotification('Failed to save bus', 'error');
 	}
+}
+
+function validateBusPayload(p) {
+    // required fields
+    const required = ['serviceNumber','vehicleNumber','source','destination','phoneNumber','latitude','longitude','currentStatus'];
+    for (const k of required) {
+        if (p[k] === undefined || p[k] === null || String(p[k]).trim() === '') {
+            return `Invalid data: ${k} is required`;
+        }
+    }
+    // serviceNumber: 4-digit int
+    if (!(Number.isInteger(p.serviceNumber) && p.serviceNumber >= 1000 && p.serviceNumber <= 9999)) {
+        return 'Invalid data: serviceNumber must be a 4-digit number';
+    }
+    // vehicleNumber: pattern
+    if (!/^[A-Z0-9-]+$/.test(String(p.vehicleNumber))) {
+        return 'Invalid data: vehicleNumber must be alphanumeric like AP05-1823';
+    }
+    // phoneNumber: 10 digits
+    if (!/^\d{10}$/.test(String(p.phoneNumber))) {
+        return 'Invalid data: phoneNumber must be 10 digits';
+    }
+    // latitude/longitude bounds
+    const lat = Number(p.latitude), lng = Number(p.longitude);
+    if (!(isFinite(lat) && lat >= -90 && lat <= 90)) {
+        return 'Invalid data: latitude must be between -90 and 90';
+    }
+    if (!(isFinite(lng) && lng >= -180 && lng <= 180)) {
+        return 'Invalid data: longitude must be between -180 and 180';
+    }
+    return '';
 }
 
 
