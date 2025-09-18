@@ -265,7 +265,7 @@ async function showTrackingPage(serviceId) {
 		goBackToDashboard();
 	}
 
-	simulateLiveUpdates(serviceId);
+    startServerDrivenUpdates();
 }
 
 
@@ -379,7 +379,7 @@ async function startPollingLocation(busDoc, idType) {
 	const idValue = idType === 'serviceNumber' ? busDoc.serviceNumber : busDoc.vehicleNumber;
 	const qp = idType === 'serviceNumber' ? `serviceNumber=${encodeURIComponent(busDoc.serviceNumber)}` : `vehicleNumber=${encodeURIComponent(busDoc.vehicleNumber)}`;
 
-	locationPollIntervalId = setInterval(async () => {
+    locationPollIntervalId = setInterval(async () => {
 		try {
 			const latest = await apiGet(`/api/bus?${qp}`);
 			currentBus = latest;
@@ -388,10 +388,48 @@ async function startPollingLocation(busDoc, idType) {
 				busMarker.setPosition(newPos);
 				map.setCenter(newPos);
 			}
+            appendLiveUpdateIfChanged(latest);
 		} catch (e) {
 			console.warn('Polling failed', e);
 		}
 	}, 5000);
+}
+
+let lastUpdateSnapshot = null;
+function appendLiveUpdateIfChanged(doc) {
+    const container = document.getElementById('liveUpdates');
+    if (!container) return;
+
+    const snapshot = JSON.stringify({
+        latitude: doc.latitude,
+        longitude: doc.longitude,
+        currentStatus: doc.currentStatus
+    });
+    if (snapshot === lastUpdateSnapshot) return;
+    lastUpdateSnapshot = snapshot;
+
+    const time = getCurrentTime();
+    const message = doc.currentStatus ? `Status: ${doc.currentStatus}` : `Position updated: (${doc.latitude?.toFixed?.(4)}, ${doc.longitude?.toFixed?.(4)})`;
+    const updateElement = document.createElement('div');
+    updateElement.className = 'update-item';
+    updateElement.innerHTML = `
+        <div class="update-time">
+            <i data-lucide="clock"></i>
+            ${time}
+        </div>
+        <div style="display: flex; align-items: center; gap: 8px;">
+            <i data-lucide="activity" style="width: 16px; height: 16px; color: var(--primary-color);"></i>
+            ${message}
+        </div>
+    `;
+    container.insertBefore(updateElement, container.firstChild);
+    updateElement.style.backgroundColor = 'var(--bg-tertiary)';
+    setTimeout(() => {
+        updateElement.style.backgroundColor = 'var(--bg-secondary)';
+    }, 1500);
+    if (typeof lucide !== 'undefined') {
+        lucide.createIcons();
+    }
 }
 
 function showMapFallback() {
@@ -405,8 +443,8 @@ function showMapFallback() {
                 <div style="background: #667eea; color: white; padding: 15px; border-radius: 10px; margin: 10px 0;">
                     <strong>Bus Location: Hyderabad → Chennai Route</strong>
                 </div>
-                <p style="color: #718096; margin: 10px 0;">Current Position: Approaching Shamshabad</p>
-                <p style="color: #718096;">Speed: 65 km/h | ETA: 6 hours</p>
+                <p style="color: #718096; margin: 10px 0;">Waiting for live data…</p>
+                <p style="color: #718096;">Ensure Google Maps key and API are reachable</p>
                 <div style="margin-top: 20px; padding: 15px; background: #f0f4f8; border-radius: 8px;">
                     <small style="color: #4a5568;">Note: Enable location services for real-time GPS tracking</small>
                 </div>
@@ -470,66 +508,10 @@ function goBackToSearch() {
 let activeIntervals = [];
 
 
-function simulateLiveUpdates(serviceId) {
-    const updatesContainer = document.getElementById('liveUpdates');
-    const updates = [
-        { 
-            time: getCurrentTime(1), 
-            message: 'Bus crossing Shamshabad - Speed: 70 km/h',
-            icon: 'navigation'
-        },
-        { 
-            time: getCurrentTime(2), 
-            message: 'Approaching Jadcherla - Traffic: Light',
-            icon: 'map-pin'
-        },
-        { 
-            time: getCurrentTime(3), 
-            message: 'Passed Kurnool bypass - Next: Anantapur',
-            icon: 'route'
-        }
-    ];
-    
-    let updateIndex = 0;
-    const updateInterval = setInterval(() => {
-        if (updateIndex < updates.length) {
-            const update = updates[updateIndex];
-            const updateElement = document.createElement('div');
-            updateElement.className = 'update-item';
-            updateElement.innerHTML = `
-                <div class="update-time">
-                    <i data-lucide="clock"></i>
-                    ${update.time}
-                </div>
-                <div style="display: flex; align-items: center; gap: 8px;">
-                    <i data-lucide="${update.icon}" style="width: 16px; height: 16px; color: var(--primary-color);"></i>
-                    ${update.message}
-                </div>
-            `;
-            
-            updatesContainer.insertBefore(updateElement, updatesContainer.firstChild);
-            
-            
-            updateElement.style.backgroundColor = 'var(--bg-tertiary)';
-            setTimeout(() => {
-                updateElement.style.backgroundColor = 'var(--bg-secondary)';
-            }, 2000);
-            
- 
-            if (typeof lucide !== 'undefined') {
-                lucide.createIcons();
-            }
-            
-            updateIndex++;
-        } else {
-            clearInterval(updateInterval);
-           
-            activeIntervals = activeIntervals.filter(id => id !== updateInterval);
-        }
-    }, 6000);
-    
-
-    activeIntervals.push(updateInterval);
+function startServerDrivenUpdates() {
+    // Clear existing
+    const container = document.getElementById('liveUpdates');
+    if (container) container.innerHTML = '';
 }
 
 async function updateBusStatus() {
