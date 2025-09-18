@@ -405,20 +405,64 @@ async function startPollingLocation(busDoc, idType) {
 }
 
 let lastUpdateSnapshot = null;
+function toNumber(n) { return typeof n === 'number' ? n : (n == null ? null : Number(n)); }
+function haversineKm(aLat, aLng, bLat, bLng) {
+    const R = 6371; // km
+    const dLat = (bLat - aLat) * Math.PI / 180;
+    const dLng = (bLng - aLng) * Math.PI / 180;
+    const lat1 = aLat * Math.PI / 180;
+    const lat2 = bLat * Math.PI / 180;
+    const sinDLat = Math.sin(dLat/2);
+    const sinDLng = Math.sin(dLng/2);
+    const a = sinDLat*sinDLat + Math.cos(lat1)*Math.cos(lat2)*sinDLng*sinDLng;
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+    return R * c;
+}
+
 function appendLiveUpdateIfChanged(doc) {
     const container = document.getElementById('liveUpdates');
     if (!container) return;
 
-    const snapshot = JSON.stringify({
-        latitude: doc.latitude,
-        longitude: doc.longitude,
-        currentStatus: doc.currentStatus
-    });
+    const lat = toNumber(doc.latitude);
+    const lng = toNumber(doc.longitude);
+    const status = doc.currentStatus || '';
+
+    const prev = lastUpdateSnapshot ? JSON.parse(lastUpdateSnapshot) : null;
+    const snapshot = JSON.stringify({ latitude: lat, longitude: lng, currentStatus: status });
     if (snapshot === lastUpdateSnapshot) return;
-    lastUpdateSnapshot = snapshot;
+
+    // Only log when meaningfully changed
+    let message = '';
+    let icon = 'activity';
+    const movedKm = prev && lat != null && lng != null && prev.latitude != null && prev.longitude != null
+        ? haversineKm(prev.latitude, prev.longitude, lat, lng)
+        : 0;
+    const statusChanged = !prev || prev.currentStatus !== status;
+
+    // Require either status change or moved >= 0.15 km to avoid noisy logs
+    if (!statusChanged && movedKm < 0.15) {
+        lastUpdateSnapshot = snapshot; // update snapshot silently without log
+        return;
+    }
+
+    if (statusChanged && status) {
+        message = `Status: ${status}`;
+        icon = 'activity';
+    }
+    if (movedKm >= 0.15 && lat != null && lng != null) {
+        const movedStr = movedKm.toFixed(2);
+        const posStr = `(${lat.toFixed(4)}, ${lng.toFixed(4)})`;
+        message = message ? `${message} • Moved ${movedStr} km to ${posStr}` : `Moved ${movedStr} km to ${posStr}`;
+        icon = 'map-pin';
+    }
+
+    // If neither condition produced a message (shouldn't happen), bail
+    if (!message) {
+        lastUpdateSnapshot = snapshot;
+        return;
+    }
 
     const time = getCurrentTime();
-    const message = doc.currentStatus ? `Status: ${doc.currentStatus}` : `Position updated: (${doc.latitude?.toFixed?.(4)}, ${doc.longitude?.toFixed?.(4)})`;
     const updateElement = document.createElement('div');
     updateElement.className = 'update-item';
     updateElement.innerHTML = `
@@ -427,18 +471,23 @@ function appendLiveUpdateIfChanged(doc) {
             ${time}
         </div>
         <div style="display: flex; align-items: center; gap: 8px;">
-            <i data-lucide="activity" style="width: 16px; height: 16px; color: var(--primary-color);"></i>
+            <i data-lucide="${icon}" style="width: 16px; height: 16px; color: var(--primary-color);"></i>
             ${message}
         </div>
     `;
     container.insertBefore(updateElement, container.firstChild);
+    // keep at most 10 items
+    while (container.children.length > 10) {
+        container.removeChild(container.lastElementChild);
+    }
     updateElement.style.backgroundColor = 'var(--bg-tertiary)';
     setTimeout(() => {
         updateElement.style.backgroundColor = 'var(--bg-secondary)';
-    }, 1500);
+    }, 1200);
     if (typeof lucide !== 'undefined') {
         lucide.createIcons();
     }
+    lastUpdateSnapshot = snapshot;
 }
 
 function showMapFallback() {
@@ -775,7 +824,7 @@ window.gm_authFailure = function() {
 
 window.initMap = initMap;
 
-// Attach authority form handler if present
+
 document.addEventListener('DOMContentLoaded', () => {
 	const form = document.getElementById('busForm');
 	if (form) {
