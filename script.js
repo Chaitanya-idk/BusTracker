@@ -43,6 +43,11 @@ document.addEventListener('DOMContentLoaded', function() {
     initializeApp();
     initializeTheme();
     setupThemeToggle();
+    // Ensure no stale logs remain after refresh
+    const live = document.getElementById('liveUpdates');
+    if (live) live.innerHTML = '';
+    const auth = document.getElementById('authorityUpdates');
+    if (auth) auth.innerHTML = '';
 });
 
 
@@ -171,12 +176,16 @@ function setupLoginForm() {
 function showUserDashboard() {
     document.getElementById('loginPage').style.display = 'none';
     document.getElementById('userDashboard').style.display = 'block';
+    const live = document.getElementById('liveUpdates');
+    if (live) live.innerHTML = '';
 }
 
 
 function showAuthorityDashboard() {
     document.getElementById('loginPage').style.display = 'none';
     document.getElementById('authorityDashboard').style.display = 'block';
+    const auth = document.getElementById('authorityUpdates');
+    if (auth) auth.innerHTML = '';
 }
 
 
